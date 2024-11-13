@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Email Templates{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">Email Templates</h2>
+    <ul class="list-group">
+        {% for template in templates %}
+        <li class="list-group-item">
+            <h5>{{ template.title }}</h5>
+            <p><strong>Subject:</strong> {{ template.subject }}</p>
+            <p>{{ template.content }}</p>
+            <button class="btn btn-primary" onclick='useTemplate({{ template.content | tojson }}, {{ template.subject | tojson }})'>Use this template</button>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<script>
+function useTemplate(content, subject) {
+    const encodedContent = encodeURIComponent(content);
+    const encodedSubject = encodeURIComponent(subject);
+    window.location.href = `/?prompt=${encodedContent}&subject=${encodedSubject}`;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Email Form{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">Recruiter Reachout</h2>
+    {% if message %}
+        <div class="alert {{ 'alert-success' if success else 'alert-danger' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    {% endif %}
+    <form method="post">
+        <input type="hidden" name="action" value="">
+        <div class="form-group">
+            <label for="company">Company:</label>
+            <input type="text" class="form-control" id="company" name="company" required>
+        </div>
+
+        <div class="form-group">
+            <label for="subject">Email Subject:</label>
+            <input type="text" class="form-control" id="subject" name="subject" required value="{{ subject }}">
+        </div>
+
+        <div class="form-group">
+            <label for="prompt">Email Prompt:</label>
+            <textarea class="form-control prompt-textarea" id="prompt" name="prompt" required>{{ prompt }}</textarea>
+        </div>
+
+        <div id="recruiter-fields">
+            <div class="form-row recruiter-row align-items-end">
+                <div class="col-md-5">
+                    <input type="text" class="form-control" name="recruiter_name" placeholder="Recruiter Name" required>
+                </div>
+                <div class="col-md-5">
+                    <input type="email" class="form-control" name="recruiter_email" placeholder="Recruiter Email" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-success w-100" onclick="addRecruiterField()">Add Recruiter</button>
+                </div>
+            </div>
+        </div>
+
+        <br>
+        <button type="submit" class="btn btn-primary" onclick="setAction('preview')">Preview Emails</button>
+    </form>
+</div>
+
+<script>
+function setAction(action) {
+    document.querySelector('input[name="action"]').value = action;
+}
+
+function addRecruiterField() {
+    var recruiterFields = `
+    <div class="form-row recruiter-row align-items-end">
+        <div class="col-md-5">
+            <input type="text" class="form-control" name="recruiter_name" placeholder="Recruiter Name" required>
+        </div>
+        <div class="col-md-5">
+            <input type="email" class="form-control" name="recruiter_email" placeholder="Recruiter Email" required>
+        </div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-danger w-100 remove-btn" onclick="removeRecruiterField(this)">Remove</button>
+        </div>
+    </div>`;
+    $('#recruiter-fields').append(recruiterFields);
+}
+
+function removeRecruiterField(button) {
+    $(button).closest('.recruiter-row').remove();
+}
+
+function autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var textarea = document.getElementById('prompt');
+    autoResizeTextarea(textarea);
+    textarea.addEventListener('input', function() {
+        autoResizeTextarea(this);
+    });
+});
+</script>
+{% endblock %}

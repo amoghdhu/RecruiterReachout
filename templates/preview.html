@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Email Preview{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">Email Preview</h2>
+    <form method="post">
+        <input type="hidden" name="action" value="send">
+        <div class="list-group">
+            <div class="list-group-item">
+                <h5>To: {{ preview.to }}</h5>
+                <h6>Subject: {{ preview.subject }}</h6>
+                <pre>{{ preview.content }}</pre>
+            </div>
+        </div>
+        <br>
+        <button type="submit" class="btn btn-primary">Send Emails</button>
+        <a href="{{ url_for('send_email') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

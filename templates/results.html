@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Email Results{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">Stored Email Entries</h2>
+    <button type="button" class="btn btn-primary mb-3" data-toggle="modal" data-target="#manualEntryModal">
+        Manual Entry
+    </button>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Company</th>
+                <th>Recruiter Name</th>
+                <th>Recruiter Email</th>
+                <th>Starred</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td>{{ entry[1] }}</td>
+                <td>{{ entry[2] }}</td> <!-- Display full name -->
+                <td>{{ entry[3] }}</td>
+                <td>
+                    <span class="star" onclick="toggleStar({{ entry[0] }})"
+                          style="cursor: pointer; color: {{ 'gold' if entry[4] else 'gray' }}">
+                        &#9733;
+                    </span>
+                </td>
+                <td>
+                    <a href="#" onclick="openEditModal({{ entry[0] }}, '{{ entry[1] }}', '{{ entry[2] }}', '{{ entry[3] }}')">
+                        <i class="fas fa-edit text-primary"></i>
+                    </a>
+                    <!-- Add margin to the trash icon for spacing -->
+                    <a href="{{ url_for('delete_entry', entry_id=entry[0]) }}"
+                       onclick="return confirm('Are you sure you want to delete this entry?');" class="ml-2">
+                        <i class="fas fa-trash-alt text-danger"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal for Manual Entry -->
+<div class="modal fade" id="manualEntryModal" tabindex="-1" role="dialog" aria-labelledby="manualEntryModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="manualEntryModalLabel">Add Manual Entry</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="post" action="{{ url_for('add_manual_entry') }}">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="company">Company:</label>
+                        <input type="text" class="form-control" id="company" name="company" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="recruiter_name">Recruiter Name:</label>
+                        <input type="text" class="form-control" id="recruiter_name" name="recruiter_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="recruiter_email">Recruiter Email:</label>
+                        <input type="email" class="form-control" id="recruiter_email" name="recruiter_email" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Editing Entry -->
+<div class="modal fade" id="editEntryModal" tabindex="-1" role="dialog" aria-labelledby="editEntryModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editEntryModalLabel">Edit Entry</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="post" action="{{ url_for('edit_entry') }}">
+                <input type="hidden" id="edit_entry_id" name="entry_id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="edit_company">Company:</label>
+                        <input type="text" class="form-control" id="edit_company" name="company" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_recruiter_name">Recruiter Name:</label>
+                        <input type="text" class="form-control" id="edit_recruiter_name" name="recruiter_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_recruiter_email">Recruiter Email:</label>
+                        <input type="email" class="form-control" id="edit_recruiter_email" name="recruiter_email" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Update Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleStar(entryId) {
+    $.get('/toggle_star/' + entryId, function() {
+        location.reload();
+    });
+}
+
+function openEditModal(id, company, fullName, email) {
+    $('#edit_entry_id').val(id);
+    $('#edit_company').val(company);
+    $('#edit_recruiter_name').val(fullName);
+    $('#edit_recruiter_email').val(email);
+    $('#editEntryModal').modal('show');
+}
+</script>
+{% endblock %}
