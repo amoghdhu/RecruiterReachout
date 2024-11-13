@@ -1,6 +1,8 @@
-from flask import Flask, request, render_template, redirect, url_for, session
+from flask import Flask, request, render_template, redirect, url_for, session, jsonify
 import sqlite3
 import smtplib
+import requests
+import re
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -10,6 +12,10 @@ app.secret_key = ''
 email = ""
 password = ""
 file_path = ""
+API_KEY = ""
+SEARCH_ENGINE_ID = ""
+url = ''
+
 
 def init_db():
     conn = sqlite3.connect("email_entries.db")
@@ -70,6 +76,117 @@ https://www.linkedin.com/in/amoghdhumal/"""
     }
 ]
 
+def get_recruiter_names(company):
+    search_query = f"{company} recruiter site:linkedin.com"
+    recruiter_names = []
+
+    for page in range(1, 3):
+        params = {
+            'q': search_query,
+            'key': API_KEY,
+            'cx': SEARCH_ENGINE_ID,
+            'start': (page - 1) * 10 + 1
+        }
+
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            results = response.json()
+
+            for item in results.get('items', []):
+                title = item.get('title', '')
+                link = item.get('link', '')
+
+                name_match = re.search(r'\b([A-Z][a-z]+ [A-Z][a-z]+)\b', title)
+                if name_match:
+                    name = name_match.group(1)
+                    if 'recruiter' in title.lower() or 'university' in title.lower() or 'talent' in title.lower():
+                        recruiter_names.append({'name': name, 'title': title, 'link': link})
+
+        except requests.RequestException as e:
+            print(f"An error occurred: {e}")
+            continue
+
+    return recruiter_names
+
+
+@app.route('/search_recruiters', methods=['POST'])
+def search_recruiters():
+    company = request.form['company']
+    recruiters = get_recruiter_names(company)
+    return jsonify(recruiters)
+
+
+@app.route('/toggle_star/<int:entry_id>')
+def toggle_star(entry_id):
+    conn = sqlite3.connect("email_entries.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE entries SET starred = NOT starred WHERE id = ?", (entry_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('view_results'))
+
+
+@app.route('/delete_entry/<int:entry_id>', methods=['GET'])
+def delete_entry(entry_id):
+    conn = sqlite3.connect("email_entries.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('view_results'))
+
+
+@app.route('/add_manual_entry', methods=['POST'])
+def add_manual_entry():
+    company = request.form['company']
+    recruiter_name = request.form['recruiter_name']
+    recruiter_email = request.form['recruiter_email']
+
+    conn = sqlite3.connect("email_entries.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO entries (company, recruiter_name, recruiter_email) VALUES (?, ?, ?)",
+                   (company, recruiter_name, recruiter_email))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('view_results'))
+
+
+@app.route('/edit_entry', methods=['POST'])
+def edit_entry():
+    entry_id = request.form['entry_id']
+    company = request.form['company']
+    recruiter_name = request.form['recruiter_name']
+    recruiter_email = request.form['recruiter_email']
+
+    conn = sqlite3.connect("email_entries.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE entries
+        SET company = ?, recruiter_name = ?, recruiter_email = ?
+        WHERE id = ?
+    """, (company, recruiter_name, recruiter_email, entry_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('view_results'))
+
+
+@app.route('/results')
+def view_results():
+    conn = sqlite3.connect("email_entries.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, company, recruiter_name, recruiter_email, starred FROM entries")
+    entries = cursor.fetchall()
+    conn.close()
+    return render_template('results.html', entries=entries)
+
+
+@app.route('/templates')
+def templates_page():
+    return render_template('templates.html', templates=templates)
+
+
 @app.route('/', methods=['GET', 'POST'])
 def send_email():
     message = None
@@ -83,12 +200,16 @@ def send_email():
 
     if request.method == 'POST':
         action = request.form.get('action')
+        company = request.form.get('company')
+        recruiter_names = request.form.getlist('recruiter_name')
+        receiver_emails = request.form.getlist('recruiter_email')
+        custom_prompt = request.form.get('prompt')
+        subject = request.form.get('subject')
+
         if action == 'preview':
-            company = request.form['company']
-            recruiter_names = request.form.getlist('recruiter_name')
-            receiver_emails = request.form.getlist('recruiter_email')
-            custom_prompt = request.form['prompt']
-            subject = request.form['subject']
+            if not company or not recruiter_names or not receiver_emails or not custom_prompt or not subject:
+                message = "Please ensure all fields are filled before previewing."
+                return render_template('email_form.html', message=message, prompt=prompt, subject=subject)
 
             session['email_data'] = {
                 'company': company,
@@ -109,13 +230,15 @@ def send_email():
             }
 
             return render_template('preview.html', preview=preview_email)
+
         elif action == 'send':
             email_data = session.get('email_data')
             if not email_data:
                 message = "No email data found in session."
-                return render_template('email_form.html', message=message, success=False, prompt=prompt, subject=subject)
+                return render_template('email_form.html', message=message, success=False, prompt=prompt,
+                                       subject=subject)
 
-            company = email_data['company']
+            company = email_data.get('company', 'N/A')
             recruiter_names = email_data['recruiter_names']
             receiver_emails = email_data['receiver_emails']
             custom_prompt = email_data['prompt']
@@ -155,77 +278,17 @@ def send_email():
 
                 message = "Emails with attachments have been sent successfully."
                 session.pop('email_data', None)
-                return render_template('email_form.html', message=message, success=True, prompt=custom_prompt, subject=subject)
+                return render_template('email_form.html', message=message, success=True, prompt=custom_prompt,
+                                       subject=subject)
             except Exception as e:
                 message = f"An error occurred: {e}"
-                return render_template('email_form.html', message=message, success=False, prompt=custom_prompt, subject=subject)
+                return render_template('email_form.html', message=message, success=False, prompt=custom_prompt,
+                                       subject=subject)
             finally:
                 server.quit()
-    return render_template('email_form.html', message=message, prompt=prompt, subject=subject)
+    else:
+        return render_template('email_form.html', message=message, prompt=prompt, subject=subject)
 
-@app.route('/results')
-def view_results():
-    conn = sqlite3.connect("email_entries.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, company, recruiter_name, recruiter_email, starred FROM entries")
-    entries = cursor.fetchall()
-    conn.close()
-    return render_template('results.html', entries=entries)
-
-@app.route('/toggle_star/<int:entry_id>')
-def toggle_star(entry_id):
-    conn = sqlite3.connect("email_entries.db")
-    cursor = conn.cursor()
-    cursor.execute("UPDATE entries SET starred = NOT starred WHERE id = ?", (entry_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('view_results'))
-
-@app.route('/delete_entry/<int:entry_id>', methods=['GET'])
-def delete_entry(entry_id):
-    conn = sqlite3.connect("email_entries.db")
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('view_results'))
-
-@app.route('/add_manual_entry', methods=['POST'])
-def add_manual_entry():
-    company = request.form['company']
-    recruiter_name = request.form['recruiter_name']
-    recruiter_email = request.form['recruiter_email']
-
-    conn = sqlite3.connect("email_entries.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO entries (company, recruiter_name, recruiter_email) VALUES (?, ?, ?)",
-                   (company, recruiter_name, recruiter_email))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('view_results'))
-
-@app.route('/edit_entry', methods=['POST'])
-def edit_entry():
-    entry_id = request.form['entry_id']
-    company = request.form['company']
-    recruiter_name = request.form['recruiter_name']
-    recruiter_email = request.form['recruiter_email']
-
-    conn = sqlite3.connect("email_entries.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE entries
-        SET company = ?, recruiter_name = ?, recruiter_email = ?
-        WHERE id = ?
-    """, (company, recruiter_name, recruiter_email, entry_id))
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for('view_results'))
-
-@app.route('/templates')
-def templates_page():
-    return render_template('templates.html', templates=templates)
 
 if __name__ == '__main__':
     app.run()

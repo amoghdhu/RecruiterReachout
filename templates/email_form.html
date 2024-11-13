@@ -5,6 +5,7 @@
 {% block content %}
 <div class="container">
     <h2 class="my-4">Recruiter Reachout</h2>
+
     {% if message %}
         <div class="alert {{ 'alert-success' if success else 'alert-danger' }} alert-dismissible fade show" role="alert">
             {{ message }}
@@ -13,14 +14,35 @@
             </button>
         </div>
     {% endif %}
-    <form method="post">
+
+    <form id="emailForm" method="post">
         <input type="hidden" name="action" value="">
-        <div class="form-group">
-            <label for="company">Company:</label>
-            <input type="text" class="form-control" id="company" name="company" required>
-        </div>
 
         <div class="form-group">
+            <label for="companySearch">Company Name:</label>
+            <input type="text" class="form-control" id="companySearch" name="company" placeholder="Enter company name">
+            <button type="button" class="btn btn-primary mt-2" onclick="searchRecruiters()">Search Recruiters</button>
+        </div>
+
+        <div id="recruiterResults" class="mt-4 d-flex flex-wrap"></div>
+
+        <div id="recruiter-fields">
+            <div class="form-row align-items-end">
+                <div class="col-md-5">
+                    <label for="recruiter_name">Recruiter Name:</label>
+                    <input type="text" class="form-control" id="recruiter_name" name="recruiter_name" required>
+                </div>
+                <div class="col-md-5">
+                    <label for="recruiter_email">Recruiter Email:</label>
+                    <input type="email" class="form-control" id="recruiter_email" name="recruiter_email">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-success mt-4 w-100" onclick="addRecruiterField()">Add Recruiter</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group mt-4">
             <label for="subject">Email Subject:</label>
             <input type="text" class="form-control" id="subject" name="subject" required value="{{ subject }}">
         </div>
@@ -30,48 +52,75 @@
             <textarea class="form-control prompt-textarea" id="prompt" name="prompt" required>{{ prompt }}</textarea>
         </div>
 
-        <div id="recruiter-fields">
-            <div class="form-row recruiter-row align-items-end">
-                <div class="col-md-5">
-                    <input type="text" class="form-control" name="recruiter_name" placeholder="Recruiter Name" required>
-                </div>
-                <div class="col-md-5">
-                    <input type="email" class="form-control" name="recruiter_email" placeholder="Recruiter Email" required>
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-success w-100" onclick="addRecruiterField()">Add Recruiter</button>
-                </div>
-            </div>
-        </div>
-
         <br>
         <button type="submit" class="btn btn-primary" onclick="setAction('preview')">Preview Emails</button>
     </form>
 </div>
 
 <script>
-function setAction(action) {
-    document.querySelector('input[name="action"]').value = action;
+function searchRecruiters() {
+    const company = document.getElementById('companySearch').value;
+    fetch('/search_recruiters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'company=' + encodeURIComponent(company)
+    })
+    .then(response => response.json())
+    .then(data => {
+        const recruiterResults = document.getElementById('recruiterResults');
+        recruiterResults.innerHTML = '';
+        data.forEach(recruiter => {
+            const tile = document.createElement('div');
+            tile.className = 'recruiter-tile card m-2 p-3';
+            tile.style.width = '30%';
+            tile.innerHTML = `<strong>${recruiter.name}</strong><br>${recruiter.title}<br>
+                <a href="${recruiter.link}" target="_blank">LinkedIn Profile</a>`;
+            tile.onclick = () => handleRecruiterTileClick(recruiter.name);
+
+            // Prevent click on LinkedIn link from adding recruiter
+            const link = tile.querySelector('a');
+            link.addEventListener('click', function(event) {
+                event.stopPropagation();
+            });
+
+            recruiterResults.appendChild(tile);
+        });
+    })
+    .catch(error => console.error('Error fetching recruiters:', error));
 }
 
-function addRecruiterField() {
-    var recruiterFields = `
-    <div class="form-row recruiter-row align-items-end">
+function handleRecruiterTileClick(name) {
+    const mainRecruiterNameField = document.getElementById('recruiter_name');
+
+    if (!mainRecruiterNameField.value) {
+        mainRecruiterNameField.value = name;
+    } else {
+        addRecruiterField(name);
+    }
+}
+
+function addRecruiterField(name = '') {
+    const recruiterFields = `
+    <div class="form-row align-items-end mt-2">
         <div class="col-md-5">
-            <input type="text" class="form-control" name="recruiter_name" placeholder="Recruiter Name" required>
+            <input type="text" class="form-control" name="recruiter_name" placeholder="Recruiter Name" value="${name}" required>
         </div>
         <div class="col-md-5">
-            <input type="email" class="form-control" name="recruiter_email" placeholder="Recruiter Email" required>
+            <input type="email" class="form-control" name="recruiter_email" placeholder="Recruiter Email">
         </div>
         <div class="col-md-2">
             <button type="button" class="btn btn-danger w-100 remove-btn" onclick="removeRecruiterField(this)">Remove</button>
         </div>
     </div>`;
-    $('#recruiter-fields').append(recruiterFields);
+    document.getElementById('recruiter-fields').insertAdjacentHTML('beforeend', recruiterFields);
 }
 
 function removeRecruiterField(button) {
-    $(button).closest('.recruiter-row').remove();
+    button.closest('.form-row').remove();
+}
+
+function setAction(action) {
+    document.querySelector('input[name="action"]').value = action;
 }
 
 function autoResizeTextarea(textarea) {
@@ -80,11 +129,26 @@ function autoResizeTextarea(textarea) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    var textarea = document.getElementById('prompt');
+    const textarea = document.getElementById('prompt');
     autoResizeTextarea(textarea);
     textarea.addEventListener('input', function() {
         autoResizeTextarea(this);
     });
 });
 </script>
+
+<style>
+.recruiter-tile {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.recruiter-tile:hover {
+    background-color: #f1f1f1;
+}
+.prompt-textarea {
+    overflow: hidden;
+}
+</style>
 {% endblock %}
