@@ -5,16 +5,19 @@
 {% block content %}
 <div class="container">
     <h2 class="my-4">Email Templates</h2>
-    <ul class="list-group">
+    <div class="row">
         {% for template in templates %}
-        <li class="list-group-item">
-            <h5>{{ template.title }}</h5>
-            <p><strong>Subject:</strong> {{ template.subject }}</p>
-            <p>{{ template.content }}</p>
-            <button class="btn btn-primary" onclick='useTemplate({{ template.content | tojson }}, {{ template.subject | tojson }})'>Use this template</button>
-        </li>
+        <div class="col-md-4 mb-4">
+            <div class="card template-card h-100" onclick='useTemplate({{ template.content | tojson }}, {{ template.subject | tojson }})'>
+                <div class="card-body">
+                    <h5 class="card-title">{{ template.title }}</h5>
+                    <p class="card-subtitle mb-2 text-muted"><strong>Subject:</strong> {{ template.subject }}</p>
+                    <p class="card-text template-content">{{ template.content }}</p>
+                </div>
+            </div>
+        </div>
         {% endfor %}
-    </ul>
+    </div>
 </div>
 
 <script>
@@ -24,4 +27,23 @@ function useTemplate(content, subject) {
     window.location.href = `/?prompt=${encodedContent}&subject=${encodedSubject}`;
 }
 </script>
+
+<style>
+.template-card {
+    cursor: pointer;
+    transition: box-shadow 0.3s, transform 0.3s;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+}
+.template-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: scale(1.02);
+}
+.template-content {
+    white-space: pre-line;
+    line-height: 1.5;
+    padding-top: 10px;
+}
+</style>
 {% endblock %}
