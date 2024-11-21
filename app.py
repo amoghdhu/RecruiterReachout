@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, url_for, session, jsonify
+from flask import Flask, request, render_template, redirect, url_for, session, jsonify, flash
 import sqlite3
 import smtplib
 import requests
@@ -6,9 +6,14 @@ import re
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+import os
+
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = ''
+UPLOAD_FOLDER = ''
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 email = ""
 password = ""
 file_path = ""
@@ -16,6 +21,7 @@ API_KEY = ""
 SEARCH_ENGINE_ID = ""
 url = ''
 
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def init_db():
     conn = sqlite3.connect("email_entries.db")
@@ -288,6 +294,33 @@ def send_email():
                 server.quit()
     else:
         return render_template('email_form.html', message=message, prompt=prompt, subject=subject)
+
+
+@app.route('/upload_resume', methods=['GET', 'POST'])
+def upload_resume():
+    if request.method == 'POST':
+        if 'resume' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+
+        file = request.files['resume']
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+
+        if file:
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            session['resume_uploaded'] = True
+            flash('Resume uploaded successfully')
+            return redirect(url_for('send_email'))
+
+    return render_template('upload_resume.html')
+
+@app.before_request
+def require_resume():
+    if not session.get('resume_uploaded') and request.endpoint != 'upload_resume':
+        return redirect(url_for('upload_resume'))
 
 
 if __name__ == '__main__':

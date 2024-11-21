@@ -77,7 +77,6 @@ function searchRecruiters() {
                 <a href="${recruiter.link}" target="_blank">LinkedIn Profile</a>`;
             tile.onclick = () => handleRecruiterTileClick(recruiter.name);
 
-            // Prevent click on LinkedIn link from adding recruiter
             const link = tile.querySelector('a');
             link.addEventListener('click', function(event) {
                 event.stopPropagation();

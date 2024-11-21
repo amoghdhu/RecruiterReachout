@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Resume{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">Upload Your Resume</h2>
+    <p>Please upload your resume to proceed with the application.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-info" role="alert">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('upload_resume') }}" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="resume">Drag and drop your resume here, or click to select a file:</label>
+            <div class="dropzone" id="dropzone">
+                <input type="file" name="resume" id="resume" class="form-control-file">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Upload Resume</button>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('resume');
+
+    dropzone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropzone.classList.add('drag-over');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('drag-over');
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropzone.classList.remove('drag-over');
+        fileInput.files = event.dataTransfer.files;
+    });
+});
+</script>
+
+<style>
+.dropzone {
+    border: 2px dashed #ddd;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+.dropzone.drag-over {
+    border-color: #007bff;
+}
+</style>
+{% endblock %}
